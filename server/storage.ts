@@ -32,6 +32,7 @@ export interface IStorage {
   ): Promise<{ customer: Customer; property: Property; lead: Lead }>;
 
   createQuote(payload: CreateQuotePayload): Promise<Quote>;
+  listQuotes(): Promise<Quote[]>;
   updateQuoteStatus(id: string, status: Quote["status"]): Promise<Quote | undefined>;
   getQuote(id: string): Promise<Quote | undefined>;
 
@@ -204,6 +205,12 @@ export class MemStorage implements IStorage {
     }
 
     return quote;
+  }
+
+  async listQuotes(): Promise<Quote[]> {
+    return Array.from(this.quotes.values()).sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
   }
 
   async updateQuoteStatus(
