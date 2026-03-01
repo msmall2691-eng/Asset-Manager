@@ -168,6 +168,14 @@ export const convertQuoteToJobSchema = z.object({
   visitEnd: z.coerce.date(),
   cleanerIds: z.array(z.string()).default([]),
   weeksToGenerate: z.number().int().min(1).max(26).default(8),
+}).superRefine((value, ctx) => {
+  if (value.visitEnd <= value.visitStart) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["visitEnd"],
+      message: "visitEnd must be after visitStart",
+    });
+  }
 });
 
 export const updateVisitSchema = z.object({

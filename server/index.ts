@@ -36,7 +36,7 @@ export function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let capturedJsonResponse: unknown;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -48,8 +48,47 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+
+      const detailedLoggingEnabled =
+        process.env.NODE_ENV !== "production" &&
+        process.env.ENABLE_DETAILED_API_LOGS === "true";
+
+      if (detailedLoggingEnabled && capturedJsonResponse !== undefined) {
+        const redactSensitiveData = (value: unknown): unknown => {
+          const sensitiveFields = new Set([
+            "email",
+            "customerEmail",
+            "phone",
+            "customerPhone",
+            "lockCode",
+            "entryNotes",
+            "rawPayload",
+            "password",
+          ]);
+
+          if (Array.isArray(value)) {
+            return value.map((item) => redactSensitiveData(item));
+          }
+
+          if (value && typeof value === "object") {
+            const entries = Object.entries(value as Record<string, unknown>).map(
+              ([key, entryValue]) => [
+                key,
+                sensitiveFields.has(key)
+                  ? "[REDACTED]"
+                  : redactSensitiveData(entryValue),
+              ],
+            );
+            return Object.fromEntries(entries);
+          }
+
+          return value;
+        };
+
+        logLine += ` :: ${JSON.stringify(redactSensitiveData(capturedJsonResponse))}`;
+      } else if (capturedJsonResponse && typeof capturedJsonResponse === "object") {
+        const keys = Object.keys(capturedJsonResponse as Record<string, unknown>);
+        logLine += ` :: responseKeys=${keys.join(",") || "none"} keyCount=${keys.length}`;
       }
 
       log(logLine);
