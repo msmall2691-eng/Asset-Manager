@@ -90,6 +90,11 @@ export async function registerRoutes(
     return res.status(201).json({ quote });
   });
 
+  app.get("/api/quotes", async (_req, res) => {
+    const quotes = await storage.listQuotes();
+    return res.json({ quotes });
+  });
+
   app.patch("/api/quotes/:quoteId/status", async (req, res) => {
     const parsed = quoteStatusSchema.safeParse(req.body?.status);
     if (!parsed.success) {
