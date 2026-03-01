@@ -45,6 +45,8 @@ Configure the public website app to call this endpoint:
 - Header: `X-WEBHOOK-SECRET: <your-shared-secret>`
 - Header: `Content-Type: application/json`
 
+For your specific intake site (`www.mainecleaning.company`), configure the backend/webhook automation layer to call the Ops API endpoint above server-to-server. Then use the dashboard at `/` in this app to verify health and new leads arriving.
+
 ### Example curl
 
 ```bash
