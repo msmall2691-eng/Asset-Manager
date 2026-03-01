@@ -1,0 +1,312 @@
+0) What we’re building (plain-English heads up)
+
+You already have a Replit app called Elite Service Suite running at www.maincleaning.company
+. It collects estimate requests and sends you emails.
+
+Now we’re building a second Replit app that functions like Jobber + Connecteam:
+
+Pipeline: Request → Quote → Job → Scheduled Visits → Complete → Invoice/Payment (optional later)
+
+CRM: One customer can have multiple properties; each property can have multiple jobs; each job can have one-time or recurring visits
+
+Team features: Cleaner availability, assignment, clock in/out, notes/photos, messaging
+
+Integration: Elite Service Suite sends new leads into the Ops Suite via a webhook/API.
+
+Name suggestion: Elite Ops Suite (internal dashboard) 😄
+
+1) Architecture decision (simple + Replit-friendly)
+Two apps (recommended)
+
+Elite Service Suite (Public Website / Intake)
+
+collects requests
+
+calls a webhook to Ops Suite: POST /api/leads
+
+Elite Ops Suite (Internal CRM / Scheduling / Team App)
+
+stores leads/customers/jobs/visits
+
+manages scheduling + availability overlay
+
+messaging + notifications
+
+Shared backend?
+
+You can unify later, but starting with two apps keeps your website stable while you build the “brain” beside it.
+
+2) Data model (Jobber-ish, but sane)
+
+Think in relational “nouns”:
+
+Core entities
+
+User
+
+roles: admin, dispatcher, cleaner
+
+Customer
+
+name, phone, email
+
+Property
+
+customer_id (one customer → many properties)
+
+address, entry notes, lock code, parking notes, pets, etc.
+
+Lead / Request
+
+raw intake from the website (service type, size, frequency, preferred dates, notes)
+
+status: new, contacted, quoted, won, lost
+
+Quote
+
+line items, price, notes, expiration, status: draft, sent, accepted, declined
+
+Job
+
+customer_id, property_id
+
+job type, frequency: one_time or recurring
+
+status: active, paused, completed
+
+Visit
+
+job_id
+
+scheduled start/end, assigned cleaner(s), status: scheduled, in_progress, done, canceled
+
+Availability
+
+user_id (cleaner)
+
+weekly repeating availability + exceptions (time off)
+
+Time Log
+
+visit_id, cleaner_id
+
+clock-in/out timestamps, optional GPS points
+
+Message / Thread
+
+conversation_id
+
+participants (customer + admins OR internal team chat)
+
+messages
+
+Why this works
+
+It matches Jobber’s mental model (Client → Property → Job → Visits)
+
+It adds Connecteam-ish workforce tracking (availability + time logs + chat)
+
+3) Integration: how Elite Service Suite connects to Elite Ops Suite
+A) Website → Ops webhook
+
+When someone submits the website form, Elite Service Suite should call:
+
+POST https://<ops-app-url>/api/leads
+
+Body example:
+
+{
+  "source": "elite_service_suite",
+  "customer": { "name": "Jane Doe", "phone": "207-555-1234", "email": "jane@email.com" },
+  "property": { "address": "12 Ocean Ave, Portland ME" },
+  "request": {
+    "serviceType": "Standard Clean",
+    "frequency": "biweekly",
+    "preferredDate": "2026-03-05",
+    "notes": "2 bathrooms, dog friendly",
+    "estimateRange": "$180-$220"
+  }
+}
+B) Security (minimum viable)
+
+Use a shared secret:
+
+Elite Service Suite sends header X-WEBHOOK-SECRET: <secret>
+
+Ops Suite verifies it before accepting the lead.
+
+4) MVP feature set (build in “levels” so it actually ships)
+Phase 1 — “Jobber core”
+
+Leads inbox (from website)
+
+Convert Lead → Customer + Property + Quote
+
+Convert Quote → Job + Visits
+
+Schedule visits on a calendar
+
+Assign cleaner(s) to visits
+
+Status tracking (scheduled / done / canceled)
+
+Phase 2 — “Connecteam core”
+
+Cleaner login
+
+Cleaner availability + time-off requests
+
+Admin sees availability overlay while scheduling
+
+Clock in/out tied to Visit (basic time logs)
+
+Phase 3 — “Messaging + texting”
+
+Internal team chat (admin ↔ cleaner)
+
+Optional: customer texting via Twilio (or another provider)
+
+Notifications (email/SMS/push later)
+
+Phase 4 — “Ops power-ups”
+
+Checklists per service type
+
+Photo upload per visit
+
+Payroll export
+
+KPI dashboard (hours, revenue/visit, cleaner utilization)
+
+5) Replit AI “build prompt” you can paste (copy/paste)
+
+Use this as-is in Replit AI for the new app:
+
+PROMPT START
+Build a second Replit web app called “Elite Ops Suite” that integrates with an existing Replit app called “Elite Service Suite” (public website) at www.maincleaning.company
+.
+
+Goal: Elite Ops Suite is an internal Jobber-like CRM + scheduling + team management system for a cleaning company. Elite Service Suite collects estimate requests and must send them into Elite Ops Suite via a webhook API.
+
+TECH REQUIREMENTS
+
+Full-stack web app with:
+
+Backend API (Node/Express or similar)
+
+Database (Postgres with Prisma preferred; SQLite ok for MVP)
+
+Frontend dashboard (React preferred; simple UI ok)
+
+Authentication:
+
+Users with roles: admin, dispatcher, cleaner
+
+Webhook integration:
+
+Create endpoint POST /api/leads that accepts JSON from Elite Service Suite
+
+Verify a shared secret header X-WEBHOOK-SECRET
+
+Core data model:
+
+Customer (name, phone, email)
+
+Property (customer_id, address, notes)
+
+Lead/Request (source, raw request fields, status)
+
+Quote (lead_id, line items, total, status)
+
+Job (customer_id, property_id, frequency one_time/recurring, status)
+
+Visit (job_id, scheduled_start, scheduled_end, assigned_cleaner_ids, status)
+
+Availability (cleaner_id, weekly schedule + exceptions)
+
+TimeLog (visit_id, cleaner_id, clock_in, clock_out, optional gps)
+
+Message/Thread (internal chat between admins/cleaners; customer chat later)
+
+FEATURES MVP (PHASE 1)
+
+Leads inbox page: list of leads received from /api/leads (status “new”)
+
+Lead detail page: convert lead to Customer + Property
+
+Quote builder: create quote, mark sent/accepted/declined
+
+Convert accepted quote into Job + Visits:
+
+one-time job creates one visit
+
+recurring job generates visits for next 8 weeks (configurable)
+
+Scheduler view:
+
+calendar/list view of visits
+
+assign cleaners to visits
+
+change visit status (scheduled, done, canceled)
+
+Cleaner portal (basic):
+
+cleaner can see assigned visits
+
+cleaner can mark visit done
+
+FEATURES PHASE 2 (stub or basic)
+
+Cleaner availability entry UI
+
+Admin scheduling overlay should show cleaner availability conflicts (basic warning)
+
+DELIVERABLES
+
+Working app with seed admin user
+
+Clear README:
+
+how to set webhook secret
+
+how to run migrations
+
+how Elite Service Suite should call /api/leads
+
+Provide sample curl command for POST /api/leads
+PROMPT END
+
+That prompt tells the AI: “This is app #2, and it must connect to app #1.”
+
+6) What to give Codex vs what to give Replit AI
+Best workflow (fast + least chaos)
+
+Give Codex this outline to refine into:
+
+database schema (Prisma models)
+
+endpoint definitions
+
+page list + routes
+
+migration plan
+
+Then paste the refined version into Replit AI to scaffold.
+
+If you want simplest
+
+Paste my Replit prompt directly into Replit AI and iterate:
+
+“Now implement the scheduler view”
+
+“Now implement recurring visit generation”
+
+“Now add availability conflicts”
+
+Codex is great at turning your spec into cleaner technical scaffolding; Replit AI is great at making it compile and run inside Replit. Using both is basically “architect + contractor.” 🏗️
+
+7) One non-negotiable tip (so this doesn’t turn into spaghetti 🍝)
+
+Start with “Leads → Quote → Job → Visits” only.
+Do NOT start with messaging, GPS, payroll, and checklists on day one. Those are fun, but they’re feature gravity wells.
